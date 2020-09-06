@@ -11,19 +11,16 @@ import (
 
 var b *tb.Bot
 
-func init() {
+func Run() {
 	var err error
 	b, err = tb.NewBot(tb.Settings{
-		Token: "YOUR_TOKEN",
+		Token: BOT_APIKEY,
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
 
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func Run() {
 	b.Handle("/start", func(m *tb.Message) {
 		if !dbop.UserExists(wm.GetSqliteDB(), m.Sender.ID) {
 			newUser := &dbop.UserVar {
@@ -84,6 +81,43 @@ func Run() {
 			}
 		}
 	})
+	
+	b.Handle("/del", func(m *tb.Message) {
+		if m.Payload == "" {
+			b.Send(m.Sender, "/del url is the format.")
+		}else {
+			Uid, err := dbop.GetUidViaTelegramId(wm.GetSqliteDB(), m.Sender.ID)
+			if err != nil {
+				b.Send(m.Sender, fmt.Sprintf("%s\r\n", err))
+				return
+			}
+			if dbop.UrlExists(wm.GetSqliteDB(), m.Payload, Uid) {
+				err = dbop.DeleteUrl(wm.GetSqliteDB(), m.Payload, Uid)
+				if err != nil {
+					b.Send(m.Sender, fmt.Sprintf("Delete failed, cause by: %s\r\n", err))
+				}else {
+					b.Send(m.Sender, "Deleted successfully.")
+				}
+			}else {
+				b.Send(m.Sender, "url does not exist.")
+			}
+		}
+	})
+	
+	b.Handle("/drop", func(m *tb.Message) {
+		Uid, err := dbop.GetUidViaTelegramId(wm.GetSqliteDB(), m.Sender.ID)
+		if err != nil {
+			b.Send(m.Sender, fmt.Sprintf("%s\r\n", err))
+			return
+		}
+		err = dbop.DeleteUrls(wm.GetSqliteDB(), Uid)
+		if err != nil {
+			b.Send(m.Sender, fmt.Sprintf("Drop failed, cause by: %s\r\n", err))
+		}else {
+			b.Send(m.Sender, "Droped successfully.")
+		}
+	})
+	
 	b.Start()
 }
 

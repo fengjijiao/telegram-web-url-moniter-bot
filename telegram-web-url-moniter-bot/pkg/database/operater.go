@@ -65,12 +65,36 @@ func GetUserInfoViaTelegramId(db *sqlx.DB, telegram_id int) (*UserVar, error) {
 	return &result, nil
 }
 
+func GetUserInfoViaUid(db *sqlx.DB, uid int) (*UserVar, error) {
+	searchSQL := "SELECT * FROM user WHERE `uid` = ? LIMIT 1"
+	rows, err := db.Queryx(searchSQL, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result UserVar
+	rows.Next()
+	err = rows.StructScan(&result)
+    if err != nil {
+        return nil, err
+    }
+	return &result, nil
+}
+
 func GetUidViaTelegramId(db *sqlx.DB, telegram_id int) (int, error) {
 	userInfo, err := GetUserInfoViaTelegramId(db, telegram_id)
 	if err != nil {
 		return 0, err
 	}
 	return userInfo.Uid, nil
+}
+
+func GetTelegramIdViaUid(db *sqlx.DB, uid int) (int, error) {
+	userInfo, err := GetUserInfoViaUid(db, uid)
+	if err != nil {
+		return 0, err
+	}
+	return userInfo.TelegramId, nil
 }
 
 func (uv *UserVar) InsertUser(db *sqlx.DB) error {

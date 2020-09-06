@@ -6,6 +6,8 @@ import (
 	httpop "telegram-web-url-moniter-bot/pkg/httper"
 	"github.com/jmoiron/sqlx"
 	"log"
+	"fmt"
+	cm "telegram-web-url-moniter-bot/pkg/ctrip-message"
 )
 
 var sqliteDB *sqlx.DB
@@ -14,12 +16,7 @@ func GetSqliteDB() *sqlx.DB {
 	return sqliteDB
 }
 
-type Message struct {
-	ChatId int64
-	Context string
-}
-
-func Run(forever bool) {
+func Run(forever bool, ch chan cm.CtripMessage) {
 	sqliteDB, _ = dbop.OpenOrCreateDatabase(dBFilePath)
 	defer sqliteDB.Close()
 	for ok := true; ok; ok = forever {
@@ -28,11 +25,21 @@ func Run(forever bool) {
 			log.Fatal(err)
 		}
 		for _, item := range *allUrls {
+			telegramId, err := dbop.GetTelegramIdViaUid(sqliteDB, item.Uid)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 			dbop.UpdateLastTimestamp(sqliteDB, item.Rid)
 			httpInfo, err := httpop.GetHTTPInfo(item.Url)
 			if err != nil {
 				//访问出错
 				log.Println(err)
+				newMessage := cm.CtripMessage {
+					ChatId: int64(telegramId),
+					Context: fmt.Sprintf("%s\n", err),
+				}
+				ch<-newMessage
 				continue
 			}
 			if httpInfo.StatusCode != item.LastStatusCode {
@@ -41,10 +48,14 @@ func Run(forever bool) {
 			if httpInfo.Status != item.LastStatus {
 				dbop.UpdateLastStatus(sqliteDB, httpInfo.Status, item.Rid)
 			}
-			if httpInfo.StatusCode != 200 && httpInfo.StatusCode != item.LastStatusCode {
+			if httpInfo.StatusCode != item.LastStatusCode {
 				//状态码变化
+				newMessage := cm.CtripMessage {
+					ChatId: int64(telegramId),
+					Context: fmt.Sprintf("%v  %s -  %s.\r\n\r\n----------------\r\n%s\r\nfrom %d to %d\r\n", getStatusEmoji(httpInfo.StatusCode), item.Url, getStatusString(httpInfo.StatusCode), httpInfo.StatusCode, getStatus(httpInfo.StatusCode), item.LastStatusCode, httpInfo.StatusCode),
+				}
+				ch<-newMessage
 				log.Printf("change: %d ==> %d\n", item.LastStatusCode, httpInfo.StatusCode)
-				tb.Send(260685916, fmt.Sprintf("change: %d ==> %d\n", item.LastStatusCode, httpInfo.StatusCode))
 				continue
 			}
 		}
