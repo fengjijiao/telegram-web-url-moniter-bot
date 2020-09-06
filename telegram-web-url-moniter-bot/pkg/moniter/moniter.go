@@ -52,7 +52,7 @@ func Run(forever bool, ch chan cm.CtripMessage) {
 				//状态码变化
 				newMessage := cm.CtripMessage {
 					ChatId: int64(telegramId),
-					Context: fmt.Sprintf("%v  %s -  %s.\r\n\r\n----------------\r\n%s\r\nfrom %d to %d\r\n", getStatusEmoji(httpInfo.StatusCode), item.Url, getStatusString(httpInfo.StatusCode), httpInfo.StatusCode, getStatus(httpInfo.StatusCode), item.LastStatusCode, httpInfo.StatusCode),
+					Context: fmt.Sprintf("%v  %s -  %s.\r\n\r\n----------------\r\n%s\r\nfrom %d to %d\r\n", getStatusEmoji(httpInfo.StatusCode), item.Url, getStatusString(httpInfo.StatusCode), getStatus(httpInfo.StatusCode), item.LastStatusCode, httpInfo.StatusCode),
 				}
 				ch<-newMessage
 				log.Printf("change: %d ==> %d\n", item.LastStatusCode, httpInfo.StatusCode)
